@@ -1,0 +1,41 @@
+# Binaries
+bin/
+*.exe
+*.test
+*.out
+*.app
+
+# Logs
+*.log
+*.log.*
+
+# Vendor
+vendor/
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Kubernetes
+*.kubeconfig
+
+# Build artifacts
+manager
+manifests.yaml
+
+# Local config
+config/local.yaml
+cmd/config/local.yaml
+
+# Claude
+.claude/
+*.plan
+*.todo
