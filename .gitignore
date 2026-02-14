@@ -1,3 +1,14 @@
+# Claude & Roadmap (Private by default)
+claude.md
+process.md
+*.plan
+*.todo
+*.roadmap.md
+docs/iterations/
+.claude/
+kubeminds-roadmaps.md
+CONTRIBUTING.md # If this is meant for internal use only
+
 # Binaries
 bin/
 *.exe
