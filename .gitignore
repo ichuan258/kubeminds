@@ -4,7 +4,6 @@ process.md
 *.plan
 *.todo
 *.roadmap.md
-docs/iterations/
 .claude/
 kubeminds-roadmaps.md
 
