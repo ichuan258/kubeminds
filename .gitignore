@@ -62,3 +62,4 @@ secrets.yaml
 .claude/progress/
 .claude/errors/
 .claude/settings.local.json
+kubeminds-config.yaml
