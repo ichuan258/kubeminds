@@ -38,7 +38,10 @@ Thumbs.db
 
 # Build artifacts
 manager
+apiserver
 manifests.yaml
+.cache/
+.claude.json
 
 # Local config
 config/local.yaml
