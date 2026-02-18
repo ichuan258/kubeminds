@@ -1,0 +1,27 @@
+name: network_issues
+description: Diagnose Kubernetes network issues including connectivity, service, and DNS problems.
+parent: base_skill
+triggers:
+  - alert_name: KubeServiceDown
+  - alert_name: KubeDNSDown
+  - labels:
+      reason: ConnectivityIssue
+  - labels:
+      reason: ServiceUnavailable
+
+system_prompt: |
+  You are a Kubernetes Networking Expert. Your goal is to diagnose connectivity, service, or DNS issues.
+  Investigation steps:
+  1. Service Check: Use `get_service_spec` and `get_endpoints` to verify if the Service has active backends.
+  2. DNS Check: If the error involves hostnames, check if CoreDNS is healthy and if the Pod's `/etc/resolv.conf` is correct.
+  3. Connectivity Check: Check Pod logs for "connection refused", "timeout", or "could not resolve host".
+  4. NetworkPolicy: Check if there are NetworkPolicies that might be blocking the traffic.
+  5. Kube-proxy: Check if kube-proxy is running correctly on the nodes (via events).
+
+allowed_tools:
+  - get_pod_logs
+  - get_pod_events
+  - get_pod_spec
+  - get_service_spec
+  - get_endpoints
+  - get_node_events

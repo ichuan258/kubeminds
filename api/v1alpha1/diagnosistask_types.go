@@ -43,17 +43,30 @@ type DiagnosisTaskSpec struct {
 	Target DiagnosisTarget `json:"target"`
 	// Policy controls the diagnosis execution
 	Policy DiagnosisPolicy `json:"policy,omitempty"`
+	// AlertContext provides context about the alert that triggered this diagnosis
+	AlertContext *AlertContext `json:"alertContext,omitempty"`
+	// Approved indicates whether the diagnosis actions are approved by a human
+	Approved bool `json:"approved,omitempty"`
+}
+
+// AlertContext contains metadata about the alert
+type AlertContext struct {
+	// Name of the alert (e.g., KubePodCrashLooping)
+	Name string `json:"name,omitempty"`
+	// Labels associated with the alert (e.g., severity=critical, reason=OOMKilled)
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // DiagnosisPhase describes the current state of the diagnosis
-// +kubebuilder:validation:Enum=Pending;Running;Completed;Failed
+// +kubebuilder:validation:Enum=Pending;Running;WaitingApproval;Completed;Failed
 type DiagnosisPhase string
 
 const (
-	PhasePending   DiagnosisPhase = "Pending"
-	PhaseRunning   DiagnosisPhase = "Running"
-	PhaseCompleted DiagnosisPhase = "Completed"
-	PhaseFailed    DiagnosisPhase = "Failed"
+	PhasePending         DiagnosisPhase = "Pending"
+	PhaseRunning         DiagnosisPhase = "Running"
+	PhaseWaitingApproval DiagnosisPhase = "WaitingApproval"
+	PhaseCompleted       DiagnosisPhase = "Completed"
+	PhaseFailed          DiagnosisPhase = "Failed"
 )
 
 // Finding represents a key discovery made during the diagnosis process
@@ -88,6 +101,10 @@ type DiagnosisTaskStatus struct {
 	History []string `json:"history,omitempty"`
 	// Checkpoint stores the intermediate findings for crash recovery
 	Checkpoint []Finding `json:"checkpoint,omitempty"`
+	// MatchedSkill indicates the name of the skill matched for this task
+	MatchedSkill string `json:"matchedSkill,omitempty"`
+	// Message provides additional information about the current status (e.g. why approval is needed)
+	Message string `json:"message,omitempty"`
 }
 
 // +kubebuilder:object:root=true

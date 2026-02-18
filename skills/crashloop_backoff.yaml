@@ -1,0 +1,19 @@
+name: crashloop_backoff
+description: Diagnose Pods in CrashLoopBackOff state
+parent: base_skill
+triggers:
+  - alert_name: KubePodCrashLooping
+  - labels:
+      reason: CrashLoopBackOff
+system_prompt: |
+  You are diagnosing a Pod in CrashLoopBackOff.
+  Specific investigation steps:
+  1. Check logs of the previous instance using `get_pod_logs` with `previous=true`.
+  2. Check the exit code in `get_pod_spec` status section (e.g., 137=OOM, 1=App Error).
+  3. If exit code is 137, suspect OOMKilled.
+  4. If logs are empty, check if the command/args are correct or if liveness probes are failing.
+  5. Check `get_pod_events` for "BackOff" events.
+allowed_tools:
+  - get_pod_logs
+  - get_pod_events
+  - get_pod_spec

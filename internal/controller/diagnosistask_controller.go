@@ -1,27 +1,14 @@
-/*
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
+	"time"
 
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,11 +23,14 @@ import (
 // DiagnosisTaskReconciler reconciles a DiagnosisTask object
 type DiagnosisTaskReconciler struct {
 	client.Client
-	Scheme    *runtime.Scheme
-	K8sClient kubernetes.Interface
-	APIKey    string
-	Model     string
-	BaseURL   string
+	Scheme       *runtime.Scheme
+	K8sClient    kubernetes.Interface
+	APIKey       string
+	Model        string
+	BaseURL      string
+	SkillDir     string
+	AgentTimeout time.Duration
+	MockLLM      bool // Use mock LLM provider for testing
 
 	// ProviderFactory allows injecting a custom LLM provider (e.g., for testing)
 	ProviderFactory func(apiKey, model, baseUrl string) agent.LLMProvider
@@ -61,7 +51,13 @@ func (r *DiagnosisTaskReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Initialize SkillManager if nil (lazy init)
 	if r.SkillManager == nil {
-		r.SkillManager = agent.NewSkillManager()
+		sm, err := agent.NewSkillManager(r.SkillDir, log)
+		if err != nil {
+			log.Error("Failed to initialize SkillManager", "error", err)
+			// Return error to retry later (e.g. if file system is temporarily unavailable)
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, err
+		}
+		r.SkillManager = sm
 	}
 
 	// Fetch the DiagnosisTask instance
@@ -97,6 +93,20 @@ func (r *DiagnosisTaskReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
+	// Handle WaitingApproval: check if human has approved before resuming
+	if task.Status.Phase == kubemindsv1alpha1.PhaseWaitingApproval {
+		if task.Spec.Approved {
+			log.Info("Task approved by human, transitioning to Running")
+			task.Status.Phase = kubemindsv1alpha1.PhaseRunning
+			if err := r.Status().Update(ctx, &task); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to update phase to Running after approval: %w", err)
+			}
+			return ctrl.Result{Requeue: true}, nil
+		}
+		// Not yet approved; wait for spec.approved to be set
+		return ctrl.Result{}, nil
+	}
+
 	// Determine if we should start/resume
 	shouldStart := false
 	isResume := false
@@ -111,8 +121,12 @@ func (r *DiagnosisTaskReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if shouldStart {
-		// Create cancelable context
-		agentCtx, cancel := context.WithCancel(context.Background())
+		// Create context with timeout to prevent agent goroutine from hanging indefinitely
+		timeout := r.AgentTimeout
+		if timeout == 0 {
+			timeout = 10 * time.Minute
+		}
+		agentCtx, cancel := context.WithTimeout(context.Background(), timeout)
 		r.ActiveAgents.Store(req.NamespacedName.String(), cancel)
 
 		// Update status to Running if needed
@@ -126,10 +140,10 @@ func (r *DiagnosisTaskReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			}
 		}
 
-		// Start agent in a goroutine
-		go func() {
+		// Start agent using errgroup for structured lifecycle management (CLAUDE.md §3.2)
+		eg, agentCtx := errgroup.WithContext(agentCtx)
+		eg.Go(func() error {
 			defer r.ActiveAgents.Delete(req.NamespacedName.String())
-			defer cancel()
 
 			// Initialize tools
 			agentTools := []agent.Tool{
@@ -140,14 +154,17 @@ func (r *DiagnosisTaskReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 			// Initialize LLM
 			var llmProvider agent.LLMProvider
-			if r.ProviderFactory != nil {
+			if r.MockLLM {
+				log.Info("Using Mock LLM provider")
+				llmProvider = llm.NewMockProvider()
+			} else if r.ProviderFactory != nil {
 				llmProvider = r.ProviderFactory(r.APIKey, r.Model, r.BaseURL)
 			} else {
 				llmProvider = llm.NewOpenAIProvider(r.APIKey, r.Model, r.BaseURL)
 			}
 
 			// Define Checkpoint Callback
-			onStepComplete := func(finding kubemindsv1alpha1.Finding) {
+			onStepComplete := func(finding *kubemindsv1alpha1.Finding, historyEntry string) {
 				updateCtx := context.Background()
 
 				var latestTask kubemindsv1alpha1.DiagnosisTask
@@ -156,15 +173,32 @@ func (r *DiagnosisTaskReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 					return
 				}
 
-				latestTask.Status.Checkpoint = append(latestTask.Status.Checkpoint, finding)
+				if finding != nil {
+					latestTask.Status.Checkpoint = append(latestTask.Status.Checkpoint, *finding)
+				}
+				if historyEntry != "" {
+					latestTask.Status.History = append(latestTask.Status.History, historyEntry)
+				}
+
 				if err := r.Status().Update(updateCtx, &latestTask); err != nil {
-					log.Error("Failed to update checkpoint", "error", err)
+					log.Error("Failed to update task status", "error", err)
 				}
 			}
 
 			// Match Skill
 			skill := r.SkillManager.Match(&task)
 			log.Info("Matched skill", "skill", skill.Name)
+
+			// Update MatchedSkill in status
+			updateCtx := context.Background()
+			var currentTask kubemindsv1alpha1.DiagnosisTask
+			if err := r.Get(updateCtx, req.NamespacedName, &currentTask); err == nil {
+				// We need to fetch the latest version to update status
+				currentTask.Status.MatchedSkill = skill.Name
+				if err := r.Status().Update(updateCtx, &currentTask); err != nil {
+					log.Error("Failed to update matched skill", "error", err)
+				}
+			}
 
 			// Create Agent with Skill
 			ag := agent.NewAgent(llmProvider, agentTools, task.Spec.Policy.MaxSteps, log, onStepComplete, skill)
@@ -179,21 +213,29 @@ func (r *DiagnosisTaskReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				task.Spec.Target.Kind, task.Spec.Target.Name, task.Spec.Target.Namespace)
 
 			// Run Agent
-			result, err := ag.Run(agentCtx, goal)
+			result, err := ag.Run(agentCtx, goal, task.Spec.Approved)
 
 			// Update CRD Status with result
-			updateCtx := context.Background()
+			updateCtx = context.Background()
 			var latestTask kubemindsv1alpha1.DiagnosisTask
 			if err := r.Get(updateCtx, req.NamespacedName, &latestTask); err != nil {
 				log.Error("Failed to get latest task for update", "error", err)
-				return
+				return fmt.Errorf("failed to get latest task for status update: %w", err)
 			}
 
 			if err != nil {
-				latestTask.Status.Phase = kubemindsv1alpha1.PhaseFailed
-				latestTask.Status.Report = &kubemindsv1alpha1.DiagnosisReport{
-					RootCause:  "Agent execution failed",
-					Suggestion: err.Error(),
+				// Check for WaitingForApproval
+				var waitingErr *agent.ErrWaitingForApproval
+				if errors.As(err, &waitingErr) {
+					log.Info("Agent requested approval", "tool", waitingErr.ToolName)
+					latestTask.Status.Phase = kubemindsv1alpha1.PhaseWaitingApproval
+					latestTask.Status.Message = fmt.Sprintf("Tool %s requires approval.", waitingErr.ToolName)
+				} else {
+					latestTask.Status.Phase = kubemindsv1alpha1.PhaseFailed
+					latestTask.Status.Report = &kubemindsv1alpha1.DiagnosisReport{
+						RootCause:  "Agent execution failed",
+						Suggestion: err.Error(),
+					}
 				}
 			} else {
 				latestTask.Status.Phase = kubemindsv1alpha1.PhaseCompleted
@@ -205,6 +247,16 @@ func (r *DiagnosisTaskReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 			if err := r.Status().Update(updateCtx, &latestTask); err != nil {
 				log.Error("Failed to update status with result", "error", err)
+			}
+			return nil
+		})
+
+		// Wait for errgroup in a background goroutine so Reconcile returns immediately.
+		// This outer goroutine is intentionally minimal: it only waits and logs.
+		go func() {
+			defer cancel()
+			if err := eg.Wait(); err != nil {
+				log.Error("Agent errgroup exited with error", "error", err)
 			}
 		}()
 	}

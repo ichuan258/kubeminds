@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"kubeminds/internal/agent"
 )
 
 type PodArgs struct {
@@ -49,6 +50,10 @@ func (t *GetPodLogsTool) Schema() string {
 		},
 		"required": ["namespace", "pod_name"]
 	}`
+}
+
+func (t *GetPodLogsTool) SafetyLevel() agent.SafetyLevel {
+	return agent.SafetyLevelReadOnly
 }
 
 func (t *GetPodLogsTool) Execute(ctx context.Context, args string) (string, error) {
@@ -110,6 +115,10 @@ func (t *GetPodEventsTool) Schema() string {
 	}`
 }
 
+func (t *GetPodEventsTool) SafetyLevel() agent.SafetyLevel {
+	return agent.SafetyLevelReadOnly
+}
+
 func (t *GetPodEventsTool) Execute(ctx context.Context, args string) (string, error) {
 	var parsedArgs PodArgs
 	if err := json.Unmarshal([]byte(args), &parsedArgs); err != nil {
@@ -166,6 +175,10 @@ func (t *GetPodSpecTool) Schema() string {
 		},
 		"required": ["namespace", "pod_name"]
 	}`
+}
+
+func (t *GetPodSpecTool) SafetyLevel() agent.SafetyLevel {
+	return agent.SafetyLevelReadOnly
 }
 
 func (t *GetPodSpecTool) Execute(ctx context.Context, args string) (string, error) {

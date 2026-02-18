@@ -1,0 +1,27 @@
+name: image_pull_diagnosis
+description: Specialized skill for diagnosing ImagePullBackOff and ErrImagePull errors
+parent: base_skill
+triggers:
+  - labels:
+      reason: "ImagePullBackOff"
+  - labels:
+      reason: "ErrImagePull"
+  - alert_name: "KubePodImagePullFailed"
+
+system_prompt: |
+  You are a Kubernetes DevOps Expert. You are diagnosing a Pod that fails to pull its container image.
+  Focus your investigation on:
+  1. Verify the image name and tag (check for typos).
+  2. Check if the image exists in the registry.
+  3. Inspect 'imagePullSecrets' in the Pod Spec for authentication issues.
+  4. Check for network issues or proxy settings preventing access to the registry.
+  5. Check registry rate limits or quota issues.
+  6. Look for "permission denied" or "manifest not found" in Pod events.
+
+allowed_tools:
+  - get_pod_events
+  - get_pod_spec
+
+memory_policy:
+  short_term_window: "1h"
+  long_term_top_k: 5

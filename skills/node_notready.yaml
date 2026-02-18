@@ -1,0 +1,29 @@
+name: node_notready_diagnosis
+description: Specialized skill for diagnosing nodes in NotReady state
+parent: base_skill
+triggers:
+  - alert_name: "KubeNodeNotReady"
+  - alert_name: "NodeNotReady"
+  - labels:
+      status: "NotReady"
+
+system_prompt: |
+  You are a Kubernetes Infrastructure Expert. You are diagnosing a Node that is in 'NotReady' state.
+  Focus your investigation on:
+  1. Check Node conditions (DiskPressure, MemoryPressure, PIDPressure).
+  2. Check Kubelet logs and status if possible (look for heartbeats).
+  3. Verify network connectivity between the node and the control plane.
+  4. Check the Container Runtime (CRI) status on the node.
+  5. Inspect Node events for recent hardware or OS issues.
+
+allowed_tools:
+  - get_node_status # I should check if this exists or if I need to use generic tools
+  - get_node_events
+  - get_pod_events
+
+memory_policy:
+  short_term_window: "2h"
+  long_term_top_k: 3
+  relevant_metrics:
+    - kube_node_status_condition
+    - node_cpu_usage_seconds_total

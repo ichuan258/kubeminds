@@ -1,0 +1,28 @@
+name: oom_diagnosis
+description: Specialized skill for diagnosing OOMKilled pods
+parent: base_skill
+triggers:
+  - alert_name: "KubePodCrashLooping"
+    labels:
+      reason: "OOMKilled"
+  - alert_name: "KubeContainerOOMKilled"
+
+system_prompt: |
+  You are a Kubernetes Memory Expert. You are diagnosing a Pod that was OOMKilled.
+  Focus your investigation on:
+  1. Check the Pod's memory limit in its Spec.
+  2. Check the container's actual memory usage (if metrics are available) or look for "Out of Memory" logs.
+  3. Determine if the limit is too tight or if there is a memory leak.
+  4. Do NOT suggest increasing limits immediately; first identify why it is consuming so much memory.
+
+allowed_tools:
+  - get_pod_logs
+  - get_pod_events
+  - get_pod_spec
+
+memory_policy:
+  short_term_window: "1h"
+  long_term_top_k: 5
+  relevant_metrics:
+    - container_memory_usage_bytes
+    - kube_pod_container_resource_limits

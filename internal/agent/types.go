@@ -2,13 +2,32 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"kubeminds/api/v1alpha1"
 )
+
+// ErrWaitingForApproval is returned when a tool execution is blocked pending user approval
+type ErrWaitingForApproval struct {
+	ToolName string
+}
+
+func (e *ErrWaitingForApproval) Error() string {
+	return fmt.Sprintf("tool %s requires approval", e.ToolName)
+}
+
+// ErrToolForbidden is returned when a tool execution is forbidden
+type ErrToolForbidden struct {
+	ToolName string
+}
+
+func (e *ErrToolForbidden) Error() string {
+	return fmt.Sprintf("tool %s is forbidden", e.ToolName)
+}
 
 // Agent defines the interface for the AI agent
 type Agent interface {
 	// Run executes the agent loop for a given goal
-	Run(ctx context.Context, goal string) (*Result, error)
+	Run(ctx context.Context, goal string, approved bool) (*Result, error)
 	// Restore restores the agent's memory from a list of findings
 	Restore(findings []v1alpha1.Finding)
 }
@@ -63,6 +82,16 @@ type FunctionCall struct {
 	Arguments string
 }
 
+// SafetyLevel defines the risk level of a tool
+type SafetyLevel string
+
+const (
+	SafetyLevelReadOnly  SafetyLevel = "ReadOnly"
+	SafetyLevelLowRisk   SafetyLevel = "LowRisk"
+	SafetyLevelHighRisk  SafetyLevel = "HighRisk"
+	SafetyLevelForbidden SafetyLevel = "Forbidden"
+)
+
 // Tool defines the interface for tools that the agent can use
 type Tool interface {
 	// Name returns the name of the tool
@@ -73,6 +102,8 @@ type Tool interface {
 	Execute(ctx context.Context, args string) (string, error)
 	// Schema returns the JSON schema for the tool's arguments
 	Schema() string
+	// SafetyLevel returns the risk level of the tool
+	SafetyLevel() SafetyLevel
 }
 
 // LLMProvider defines the interface for the Large Language Model provider

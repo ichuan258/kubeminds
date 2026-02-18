@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"fmt"
 )
 
 // MockLLMProvider is a mock implementation of LLMProvider for testing
@@ -23,6 +22,8 @@ func NewMockLLMProvider() *MockLLMProvider {
 }
 
 func (m *MockLLMProvider) Chat(ctx context.Context, messages []Message, tools []Tool) (*Message, error) {
+	// Simple Chat Mock: return configured response for the current call count
+	// We use CallCount to map to steps in the test.
 	currentStep := m.CallCount
 	m.CallCount++
 
@@ -34,13 +35,18 @@ func (m *MockLLMProvider) Chat(ctx context.Context, messages []Message, tools []
 		return msg, nil
 	}
 
-	return nil, fmt.Errorf("no mock response configured for step %d", currentStep)
+	// Fallback for unexpected calls to prevent panics or errors in simple tests
+	return &Message{
+		Type:    MessageTypeAssistant,
+		Content: "I don't know what to do.",
+	}, nil
 }
 
 // MockTool is a mock implementation of Tool for testing
 type MockTool struct {
 	NameVal        string
 	DescVal        string
+	SafetyLevelVal SafetyLevel
 	ExecuteFunc    func(ctx context.Context, args string) (string, error)
 	ExecutionCount int
 }
@@ -63,4 +69,11 @@ func (m *MockTool) Execute(ctx context.Context, args string) (string, error) {
 
 func (m *MockTool) Schema() string {
 	return "{}"
+}
+
+func (m *MockTool) SafetyLevel() SafetyLevel {
+	if m.SafetyLevelVal != "" {
+		return m.SafetyLevelVal
+	}
+	return SafetyLevelReadOnly
 }

@@ -1,0 +1,30 @@
+name: pv_mount_diagnosis
+description: Specialized skill for diagnosing PersistentVolume and PVC mounting issues
+parent: base_skill
+triggers:
+  - alert_name: "KubePersistentVolumeErrors"
+  - alert_name: "KubePVCMountingPending"
+  - labels:
+      reason: "FailedMount"
+  - labels:
+      reason: "FailedAttachVolume"
+
+system_prompt: |
+  You are a Kubernetes Storage Expert. You are diagnosing a Pod that cannot mount its volumes.
+  Focus your investigation on:
+  1. Check the PVC status (Bound, Pending, Lost).
+  2. Inspect the PV status and its reclaim policy.
+  3. Check the StorageClass configuration and provisioner logs.
+  4. Verify if the volume is already attached to another node (Multi-Attach error).
+  5. Check for Node affinity conflicts (e.g., PV is in zone A, Pod is scheduled in zone B).
+  6. Look for permission issues or missing secrets for cloud-based storage.
+
+allowed_tools:
+  - get_pvc_status
+  - get_pv_status
+  - get_pod_events
+  - get_pod_spec
+
+memory_policy:
+  short_term_window: "4h"
+  long_term_top_k: 5
