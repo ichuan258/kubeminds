@@ -4,12 +4,17 @@
 
 set -e
 
-# GCloud 配置
-INSTANCE="instance-20260215-051955"
-ZONE="asia-east1-b"
-REMOTE_PORT="6443"
-LOCAL_PORT="6443"
-REMOTE_HOST="10.140.0.2"
+# GCloud 配置 (支持环境变量覆盖)
+INSTANCE="${GCLOUD_INSTANCE:-}"
+ZONE="${GCLOUD_ZONE:-}"
+REMOTE_PORT="${GCLOUD_REMOTE_PORT:-6443}"
+LOCAL_PORT="${GCLOUD_LOCAL_PORT:-6443}"
+REMOTE_HOST="${GCLOUD_REMOTE_HOST:-}"
+
+# 如果未设置，从 .env 文件加载
+if [ -f "$(dirname "$0")/../.env.local" ]; then
+    source "$(dirname "$0")/../.env.local"
+fi
 
 # 颜色输出
 GREEN='\033[0;32m'
@@ -27,18 +32,59 @@ usage() {
   down       关闭 SSH 隧道
   status     检查隧道状态
   restart    重启隧道
+  verify     验证隧道和集群连接
   help       显示此帮助信息
 
 示例:
   $0 up      # 启动隧道
   $0 status  # 检查隧道是否运行
 
-环境变量:
-  INSTANCE   GCE 实例名 (默认: $INSTANCE)
-  ZONE       GCE 区域 (默认: $ZONE)
+必需的环境变量 (需要在 .env.local 中设置或命令行传递):
+  GCLOUD_INSTANCE    GCE 实例名 (例: instance-20260215-051955)
+  GCLOUD_ZONE        GCE 区域 (例: asia-east1-b)
+  GCLOUD_REMOTE_HOST K8s API 内部 IP (例: 10.140.0.2)
+
+可选的环境变量:
+  GCLOUD_REMOTE_PORT K8s API 端口 (默认: 6443)
+  GCLOUD_LOCAL_PORT  本地转发端口 (默认: 6443)
+
+配置文件示例 (.env.local):
+  GCLOUD_INSTANCE=instance-20260215-051955
+  GCLOUD_ZONE=asia-east1-b
+  GCLOUD_REMOTE_HOST=10.140.0.2
 
 EOF
     exit 0
+}
+
+# 验证必需的环境变量
+validate_config() {
+    local missing=0
+
+    if [ -z "$INSTANCE" ]; then
+        echo -e "${RED}❌ 错误: GCLOUD_INSTANCE 未设置${NC}"
+        missing=1
+    fi
+
+    if [ -z "$ZONE" ]; then
+        echo -e "${RED}❌ 错误: GCLOUD_ZONE 未设置${NC}"
+        missing=1
+    fi
+
+    if [ -z "$REMOTE_HOST" ]; then
+        echo -e "${RED}❌ 错误: GCLOUD_REMOTE_HOST 未设置${NC}"
+        missing=1
+    fi
+
+    if [ $missing -eq 1 ]; then
+        echo ""
+        echo -e "${BLUE}请设置环境变量或在 .env.local 中配置:${NC}"
+        echo "  export GCLOUD_INSTANCE=instance-name"
+        echo "  export GCLOUD_ZONE=zone-name"
+        echo "  export GCLOUD_REMOTE_HOST=10.140.0.2"
+        echo ""
+        usage
+    fi
 }
 
 # 获取隧道进程 PID
@@ -141,6 +187,7 @@ main() {
 
     case "$cmd" in
         up)
+            validate_config
             tunnel_up
             ;;
         down)
@@ -150,11 +197,13 @@ main() {
             tunnel_status
             ;;
         restart)
+            validate_config
             tunnel_down
             sleep 1
             tunnel_up
             ;;
         verify)
+            validate_config
             tunnel_status && verify_kubeconfig
             ;;
         help|--help|-h)

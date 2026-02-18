@@ -1,6 +1,6 @@
 # Claude & Roadmap (Private by default)
 claude.md
-process.md
+docs/context/process.md
 *.plan
 *.todo
 *.roadmap.md
@@ -43,8 +43,22 @@ manifests.yaml
 # Local config
 config/local.yaml
 cmd/config/local.yaml
+.env.local
+.env*.local
 
-# Claude
-.claude/
-*.plan
-*.todo
+# Sensitive data
+*.key
+*.pem
+.credentials
+secrets.yaml
+/kubeconfig
+~/.kube/
+
+# GCloud SSH tunnel config (user-specific)
+# Use .env.local.example as template
+.env.local
+
+# Claude Code hooks data
+.claude/progress/
+.claude/errors/
+.claude/settings.local.json
