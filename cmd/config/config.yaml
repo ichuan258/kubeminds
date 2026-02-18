@@ -1,13 +1,16 @@
 metricsAddr: ":8080"
 probeAddr: ":8081"
 enableLeaderElection: false
+skillDir: "skills/"
+agentTimeoutMinutes: 10
 
 # LLM Configuration
 # The API Key for the LLM provider. Can also be set via OPENAI_API_KEY environment variable.
-apiKey: "AIzaSyAyGqqGo0InN6Im9Ymi5LUf3AvRLcpMcnQ"
+# For MVP testing, leave empty when using --mock-llm flag
+apiKey: ""
 
 # The model to use (e.g., gpt-4o, gemini-1.5-pro, deepseek-coder, etc.)
-model: "gemini-3-pro"
+model: "gpt-4o"
 
 # The Base URL for the LLM provider (default: https://api.openai.com/v1)
 # Examples:
@@ -17,3 +20,15 @@ model: "gemini-3-pro"
 # - DeepSeek: https://api.deepseek.com/v1
 # - Moonshot (Kimi): https://api.moonshot.cn/v1
 baseUrl: "https://api.openai.com/v1"
+
+# Kubernetes Connection Configuration
+# provider: ""        Auto-discovery (in-cluster → KUBECONFIG env → ~/.kube/config) [default]
+# provider: "local"   Load from explicit kubeconfig file
+# provider: "gcloud"  Like local, supports insecureSkipVerify for SSH tunnel/GKE scenarios
+# provider: "aws"     EKS via AWS credentials (not yet implemented)
+k8s:
+  provider: "gcloud"
+  kubeconfigPath: "~/.kube/gcloud-k8s-config"  # Kubeconfig via SSH tunnel
+  insecureSkipVerify: false           # TLS handled by kubeconfig insecure-skip-tls-verify
+  context: ""                         # Override kubeconfig context name (optional)
+  # SSH Tunnel: gcloud compute ssh instance-20260215-051955 --zone=asia-east1-b -- -L 6443:10.140.0.2:6443 -N -f
