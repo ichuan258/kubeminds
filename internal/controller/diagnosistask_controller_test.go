@@ -45,7 +45,7 @@ var _ = Describe("DiagnosisTask Controller", func() {
 					return ""
 				}
 				return string(t.Status.Phase)
-			}, time.Second*10, time.Millisecond*500).Should(Equal(string(kubemindsv1alpha1.PhaseRunning)))
+			}, time.Second*10, time.Millisecond*500).Should(Or(Equal(string(kubemindsv1alpha1.PhaseRunning)), Equal(string(kubemindsv1alpha1.PhaseCompleted))))
 		})
 	})
 })

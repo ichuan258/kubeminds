@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
+	"time"
 
 	"github.com/go-logr/zapr"
+	goredis "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -17,8 +21,12 @@ import (
 
 	kubemindsv1alpha1 "kubeminds/api/v1alpha1"
 	"kubeminds/internal/agent"
+	"kubeminds/internal/alert"
 	"kubeminds/internal/api"
 	"kubeminds/internal/config"
+	"kubeminds/internal/controller"
+	"kubeminds/internal/llm"
+	"kubeminds/internal/tools"
 )
 
 var (
@@ -126,14 +134,112 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize Alert Aggregator
+	windowSize, sweepInterval, err := config.ParseAlertAggregatorConfig(cfg.AlertAggregator)
+	if err != nil {
+		setupLog.Error(err, "invalid alert aggregator configuration")
+		os.Exit(1)
+	}
+	aggregator := alert.NewAggregator(
+		mgr.GetClient(),
+		cfg.AlertAggregator.TargetNamespace,
+		windowSize,
+		sweepInterval,
+		log.Log.WithName("alert-aggregator"),
+	)
+	alertHandler := alert.NewHandler(aggregator, log.Log.WithName("alert-handler"))
+
+	// Create Tool Router
+	toolRouter := tools.NewRouter(slog.Default())
+	toolRouter.AddProvider(tools.NewInternalProvider(clientset))
+	toolRouter.AddProvider(tools.NewMCPProvider())
+	toolRouter.AddProvider(tools.NewGRPCProvider())
+
+	// Build LLM Router for the ping endpoint.
+	// A failed router build is non-fatal for the API server — the ping endpoint
+	// will return 503 if the router is nil, which is the right behavior when
+	// LLM config is intentionally omitted (e.g. alert-only deployments).
+	var llmRouter *llm.Router
+	if cfg.LLM.DefaultProvider != "" && len(cfg.LLM.Providers) > 0 {
+		r, err := llm.NewRouterFromConfig(cfg.LLM)
+		if err != nil {
+			setupLog.Error(err, "failed to build LLM router; /api/v1/llm/ping will be unavailable")
+		} else {
+			llmRouter = r
+		}
+	}
+
+	// Initialize L2 Event Store (optional — enabled when redis.addr is set in config).
+	var l2Store agent.EventStore
+	if cfg.Redis.Addr != "" {
+		eventTTL, err := config.ParseRedisEventTTL(cfg.Redis)
+		if err != nil {
+			setupLog.Error(err, "invalid redis.eventTTL configuration")
+			os.Exit(1)
+		}
+		redisClient := goredis.NewClient(&goredis.Options{
+			Addr:     cfg.Redis.Addr,
+			Password: cfg.Redis.Password,
+			DB:       cfg.Redis.DB,
+		})
+		l2Store = agent.NewRedisEventStore(redisClient, eventTTL)
+		aggregator.WithL2Store(l2Store)
+		setupLog.Info("L2 Redis event store enabled", "addr", cfg.Redis.Addr)
+	}
+
+	// Initialize L3 Knowledge Base (optional — enabled when postgres.dsn is set in config).
+	var knowledgeBase agent.KnowledgeBase
+	var embedder agent.EmbeddingProvider
+	if cfg.PostgreSQL.DSN != "" {
+		embedDim := cfg.PostgreSQL.EmbedDim
+		if embedDim == 0 {
+			embedDim = 1536
+		}
+		kb, err := agent.NewPGKnowledgeBaseFromDSN(context.Background(), cfg.PostgreSQL.DSN, embedDim)
+		if err != nil {
+			setupLog.Error(err, "failed to connect to PostgreSQL for L3 knowledge base")
+			os.Exit(1)
+		}
+		if err := kb.InitSchema(context.Background()); err != nil {
+			setupLog.Error(err, "failed to initialize L3 schema")
+			os.Exit(1)
+		}
+		knowledgeBase = kb
+
+		// Reuse the openai provider's API key and base URL for embedding generation.
+		openaiCfg := cfg.LLM.Providers["openai"]
+		embedder = llm.NewOpenAIEmbedder(openaiCfg.APIKey, openaiCfg.BaseURL)
+		setupLog.Info("L3 PostgreSQL knowledge base enabled")
+	}
+
+	// Register the DiagnosisTask controller with the manager.
+	agentTimeout := time.Duration(cfg.AgentTimeoutMinutes) * time.Minute
+	if err := (&controller.DiagnosisTaskReconciler{
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		K8sClient:     clientset,
+		SkillDir:      skillDir,
+		AgentTimeout:  agentTimeout,
+		LLMProvider:   llmRouter,
+		ToolRouter:    toolRouter,
+		L2Store:       l2Store,
+		KnowledgeBase: knowledgeBase,
+		Embedder:      embedder,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create DiagnosisTask controller")
+		os.Exit(1)
+	}
+
 	// Initialize API Server
 	apiServer := api.NewServer(
 		mgr.GetClient(),
 		clientset,
 		skillManager,
+		toolRouter,
 		apiPort,
 		log.Log.WithName("api-server"),
-	)
+	).WithAlertHandler(alertHandler).WithLLMRouter(llmRouter)
+
 	go func() {
 		setupLog.Info("starting api server", "port", fmt.Sprintf("%d", apiPort))
 		if err := apiServer.Start(); err != nil {
@@ -143,7 +249,12 @@ func main() {
 	}()
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	sigCtx := ctrl.SetupSignalHandler()
+
+	// Start the alert aggregator sweep loop, tied to the process signal context.
+	go aggregator.Run(sigCtx)
+
+	if err := mgr.Start(sigCtx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}

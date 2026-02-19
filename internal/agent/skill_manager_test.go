@@ -9,8 +9,8 @@ import (
 
 func TestSkillManager_Match(t *testing.T) {
 	tests := []struct {
-		name         string
-		task         *v1alpha1.DiagnosisTask
+		name          string
+		task          *v1alpha1.DiagnosisTask
 		expectedSkill string
 	}{
 		{

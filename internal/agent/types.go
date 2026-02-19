@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"kubeminds/api/v1alpha1"
 )
 
@@ -106,8 +108,64 @@ type Tool interface {
 	SafetyLevel() SafetyLevel
 }
 
+// ToolProvider defines the interface for providing tools
+type ToolProvider interface {
+	// ListTools returns a list of available tools
+	ListTools(ctx context.Context) ([]Tool, error)
+}
+
 // LLMProvider defines the interface for the Large Language Model provider
 type LLMProvider interface {
 	// Chat sends a chat request to the LLM and returns the response
 	Chat(ctx context.Context, messages []Message, tools []Tool) (*Message, error)
+}
+
+// AlertEvent represents a recent alert event stored in the L2 event stream.
+type AlertEvent struct {
+	AlertName string
+	Namespace string
+	Pod       string
+	Count     int
+	FirstSeen time.Time
+	LastSeen  time.Time
+}
+
+// EventStore is the L2 interface for reading and writing recent alert events.
+// Both methods must be nil-safe and tolerate unavailable backends gracefully.
+type EventStore interface {
+	// AppendAlertEvent writes a new alert event to the event stream.
+	AppendAlertEvent(ctx context.Context, event AlertEvent) error
+	// GetRecentEvents retrieves the most recent events for the given namespace.
+	// If pod is non-empty, only events for that pod are returned.
+	GetRecentEvents(ctx context.Context, namespace, pod string, limit int) ([]AlertEvent, error)
+}
+
+// KnowledgeFinding represents a completed diagnosis stored in the L3 knowledge base.
+type KnowledgeFinding struct {
+	ID         string
+	AlertName  string
+	Namespace  string
+	RootCause  string
+	Suggestion string
+	CreatedAt  time.Time
+}
+
+// KnowledgeBase is the L3 interface for storing and retrieving historical diagnoses.
+// Embeddings are owned by the caller to keep this interface storage-agnostic.
+type KnowledgeBase interface {
+	// InitSchema creates the required database schema if it does not already exist.
+	InitSchema(ctx context.Context) error
+	// SaveDiagnosis persists a completed diagnosis alongside its embedding vector.
+	SaveDiagnosis(ctx context.Context, finding KnowledgeFinding, embedding []float32) error
+	// SearchSimilar returns the top-k historically similar diagnoses ordered by
+	// cosine similarity to queryEmbedding.
+	SearchSimilar(ctx context.Context, queryEmbedding []float32, limit int) ([]KnowledgeFinding, error)
+}
+
+// EmbeddingProvider generates dense vector embeddings for text.
+// The interface lives here so the controller can reference it without importing
+// the llm package (which would create an import cycle: controller → llm → agent).
+type EmbeddingProvider interface {
+	// Embed returns a float32 embedding vector for the given text.
+	Embed(ctx context.Context, text string) ([]float32, error)
 }

@@ -4,22 +4,41 @@ enableLeaderElection: false
 skillDir: "skills/"
 agentTimeoutMinutes: 10
 
-# LLM Configuration
-# The API Key for the LLM provider. Can also be set via OPENAI_API_KEY environment variable.
-# For MVP testing, leave empty when using --mock-llm flag
-apiKey: ""
+# LLM Multi-Provider Configuration
+#
+# defaultProvider selects which provider is active. Change this one field to switch providers.
+# Supported values: openai | gemini | anthropic
+#
+# API Key Encryption:
+#   1. Generate a master key:  openssl rand -hex 32
+#   2. Set the env var:        export KUBEMINDS_MASTER_KEY=<the hex key>
+#   3. Encrypt your API key:   make encrypt-key KEY=sk-xxxx
+#   4. Paste the "enc:aes256:..." output below as the apiKey value.
+#   Plain-text values also work (for local dev); encrypted values are recommended for production.
+llm:
+  defaultProvider: "openai"
+  providers:
+    openai:
+      # apiKey: "enc:aes256:..."   # encrypted (recommended for production)
+      apiKey: ""                   # or set via OPENAI_API_KEY env var (handled in main.go)
+      model: "gpt-4o"
+      baseUrl: "https://api.openai.com/v1"
 
-# The model to use (e.g., gpt-4o, gemini-1.5-pro, deepseek-coder, etc.)
-model: "gpt-4o"
+    gemini:
+      # Gemini uses Google's OpenAI-compatible endpoint.
+      # Get your key at: https://aistudio.google.com/app/apikey
+      # apiKey: "enc:aes256:..."
+      apiKey: ""
+      model: "gemini-2.0-flash"
+      # baseUrl is optional; the provider uses the official compat endpoint by default.
+      # baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/"
 
-# The Base URL for the LLM provider (default: https://api.openai.com/v1)
-# Examples:
-# - OpenAI: https://api.openai.com/v1
-# - Gemini (via Proxy): https://generativelanguage.googleapis.com/v1beta/openai/ (requires proxy or compatible gateway)
-# - LocalAI: http://localhost:8080/v1
-# - DeepSeek: https://api.deepseek.com/v1
-# - Moonshot (Kimi): https://api.moonshot.cn/v1
-baseUrl: "https://api.openai.com/v1"
+    anthropic:
+      # Get your key at: https://console.anthropic.com/
+      # apiKey: "enc:aes256:..."
+      apiKey: ""
+      model: "claude-sonnet-4-6"
+      # baseUrl is optional; leave empty to use https://api.anthropic.com
 
 # Kubernetes Connection Configuration
 # provider: ""        Auto-discovery (in-cluster → KUBECONFIG env → ~/.kube/config) [default]
@@ -31,4 +50,29 @@ k8s:
   kubeconfigPath: "~/.kube/gcloud-k8s-config"  # Kubeconfig via SSH tunnel
   insecureSkipVerify: false           # TLS handled by kubeconfig insecure-skip-tls-verify
   context: ""                         # Override kubeconfig context name (optional)
-  # SSH Tunnel: gcloud compute ssh instance-20260215-051955 --zone=asia-east1-b -- -L 6443:10.140.0.2:6443 -N -f
+  # SSH Tunnel: gcloud compute ssh <instance> --zone=<zone> -- -L 6443:<internal-ip>:6443 -N -f
+
+# Alert Aggregator Configuration
+alertAggregator:
+  windowSize: "60s"
+  sweepInterval: "5s"
+  targetNamespace: "default"
+
+# L2 Memory: Redis Event Store (optional)
+# Leave addr empty to disable L2. When enabled, recent alert events for the same
+# namespace are injected into the agent context before each diagnosis.
+# Start a local instance: make dev-redis-start
+redis:
+  addr: ""            # e.g. "localhost:6379"
+  password: ""        # optional; supports "enc:aes256:..." encrypted values
+  db: 0
+  eventTTL: "24h"     # how long stream events are retained
+
+# L3 Memory: PostgreSQL Knowledge Base (optional)
+# Leave dsn empty to disable L3. When enabled, completed diagnoses are stored as
+# embeddings and similar historical cases are injected before each new diagnosis.
+# Start a local instance: make dev-postgres-start
+postgres:
+  dsn: ""             # e.g. "postgres://kubeminds:kubeminds@localhost:5432/kubeminds?sslmode=disable"
+  maxOpenConns: 10
+  embedDim: 1536      # must match the embedding model (text-embedding-3-small default)

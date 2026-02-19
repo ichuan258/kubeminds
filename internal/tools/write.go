@@ -24,9 +24,9 @@ type PatchDeploymentArgs struct {
 }
 
 type ScaleStatefulSetArgs struct {
-	Namespace      string `json:"namespace"`
+	Namespace       string `json:"namespace"`
 	StatefulSetName string `json:"statefulset_name"`
-	Replicas       int32  `json:"replicas"`
+	Replicas        int32  `json:"replicas"`
 }
 
 // DeletePodTool implements the delete_pod tool

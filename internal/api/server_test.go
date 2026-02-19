@@ -18,6 +18,7 @@ import (
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	kubemindsv1alpha1 "kubeminds/api/v1alpha1"
+	"kubeminds/internal/tools"
 )
 
 func TestAPI(t *testing.T) {
@@ -39,7 +40,9 @@ var _ = Describe("API Server", func() {
 
 		k8sClient = fakeclient.NewClientBuilder().WithScheme(scheme).Build()
 		k8sClientset := fake.NewSimpleClientset()
-		server = NewServer(k8sClient, k8sClientset, nil, 8081, logr.Discard())
+		toolRouter := tools.NewRouter(nil)
+		toolRouter.AddProvider(tools.NewInternalProvider(k8sClientset))
+		server = NewServer(k8sClient, k8sClientset, nil, toolRouter, 8081, logr.Discard())
 	})
 
 	Context("Diagnosis Tasks", func() {

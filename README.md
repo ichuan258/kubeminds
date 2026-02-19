@@ -344,6 +344,24 @@ aws eks update-kubeconfig --region us-east-1 --name my-cluster
 
 ## 🔧 开发指南
 
+### Git Hooks（安全 + 静态编译门禁）
+
+```bash
+# 1) 安装 hooks
+make hook-install
+
+# 2) 安装检查工具（写入 ./bin）
+make hook-tools
+
+# 3) 手动运行（可选）
+make hook-fast
+make hook-full
+```
+
+Hook 规则：
+- `pre-commit`: `gofmt` + `golangci-lint --fast` + `gitleaks (staged)` + `go build ./...`
+- `pre-push`: `golangci-lint` + `go test` + `gosec` + `govulncheck` + `gitleaks (full)`
+
 ### 项目结构
 
 ```

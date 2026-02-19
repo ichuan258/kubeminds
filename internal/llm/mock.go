@@ -16,7 +16,7 @@ type MockProvider struct {
 func NewMockProvider() *MockProvider {
 	return &MockProvider{
 		responses: map[string]string{
-			"oom":      "Root Cause: Pod memory limit exceeded (OOMKilled)\nSuggestion: Increase memory limit in pod spec or optimize application memory usage",
+			"oom":       "Root Cause: Pod memory limit exceeded (OOMKilled)\nSuggestion: Increase memory limit in pod spec or optimize application memory usage",
 			"imagepull": "Root Cause: Container image pull failed - registry unreachable or image does not exist\nSuggestion: Verify image URL, check registry credentials, or ensure registry is accessible",
 			"crashloop": "Root Cause: Container crashes immediately after startup - application error or misconfiguration\nSuggestion: Check application logs for startup errors, verify environment variables and config maps",
 			"notready":  "Root Cause: Node status NotReady due to kubelet or network issues\nSuggestion: Check node kubelet status, verify network connectivity, drain and restart node if necessary",

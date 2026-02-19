@@ -18,12 +18,51 @@ SHELL = /usr/bin/env bash -o pipefail
 .PHONY: all
 all: build
 
+## Tool Versions (Hooks)
+GOLANGCI_LINT_VERSION ?= v1.64.8
+GOSEC_VERSION ?= v2.23.0
+GOVULNCHECK_VERSION ?= v1.1.4
+GITLEAKS_VERSION ?= v8.30.0
+
 ##@ General
 
 # The help target prints out all targets with their descriptions organized by category
 .PHONY: help
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+##@ Security
+
+.PHONY: encrypt-key
+encrypt-key: ## Encrypt an LLM API key for storage in config.yaml. Usage: make encrypt-key KEY=sk-xxxx
+	@if [ -z "$(KEY)" ]; then \
+		echo "Usage: make encrypt-key KEY=<your-api-key>"; \
+		echo "Also requires: export KUBEMINDS_MASTER_KEY=<64-hex-chars>"; \
+		exit 1; \
+	fi
+	@go run ./cmd/tools/encryptkey/main.go "$(KEY)"
+
+##@ Local Dev Environment
+
+.PHONY: dev-redis-start
+dev-redis-start: ## Start a local Redis container for L2 event store testing.
+	docker run -d --name kubeminds-redis -p 6379:6379 redis:7-alpine
+	@echo "Redis started on localhost:6379. Stop with: make dev-stop"
+
+.PHONY: dev-postgres-start
+dev-postgres-start: ## Start a local PostgreSQL+pgvector container for L3 knowledge base testing.
+	docker run -d --name kubeminds-postgres \
+		-e POSTGRES_USER=kubeminds \
+		-e POSTGRES_PASSWORD=kubeminds \
+		-e POSTGRES_DB=kubeminds \
+		-p 5432:5432 \
+		pgvector/pgvector:pg16
+	@echo "PostgreSQL started on localhost:5432 (user=kubeminds, db=kubeminds). Stop with: make dev-stop"
+
+.PHONY: dev-stop
+dev-stop: ## Stop and remove local dev containers (Redis + PostgreSQL).
+	docker rm -f kubeminds-redis kubeminds-postgres 2>/dev/null || true
+	@echo "Dev containers stopped."
 
 ##@ Development
 
@@ -46,6 +85,27 @@ vet: ## Run go vet against code.
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test ./... -coverprofile cover.out
+
+.PHONY: hook-install
+hook-install: ## Install git hooks (pre-commit/pre-push).
+	git config core.hooksPath .githooks
+	chmod +x .githooks/pre-commit .githooks/pre-push
+	chmod +x .claude/hooks/check-fast.sh .claude/hooks/check-full.sh
+	@echo "Git hooks installed: $$(git config core.hooksPath)"
+
+.PHONY: hook-tools
+hook-tools: $(LOCALBIN) ## Install hook toolchain to ./bin.
+	GOBIN=$(LOCALBIN) GOPROXY=$${GOPROXY:-https://proxy.golang.org,direct} go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+	GOBIN=$(LOCALBIN) GOPROXY=$${GOPROXY:-https://proxy.golang.org,direct} go install github.com/securego/gosec/v2/cmd/gosec@$(GOSEC_VERSION)
+	GOBIN=$(LOCALBIN) GOPROXY=$${GOPROXY:-https://proxy.golang.org,direct} go install golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION)
+	GOBIN=$(LOCALBIN) GOPROXY=$${GOPROXY:-https://proxy.golang.org,direct} go install github.com/zricethezav/gitleaks/v8@$(GITLEAKS_VERSION)
+
+.PHONY: hook-fast
+hook-fast: ## Run fast local gate (format/lint/secrets/build).
+	@bash .claude/hooks/check-fast.sh
+
+hook-full: ## Run full local gate (lint/test/security/vuln/secrets).
+	@bash .claude/hooks/check-full.sh
 
 ##@ Build
 

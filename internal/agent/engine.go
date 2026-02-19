@@ -246,6 +246,13 @@ func (a *BaseAgent) extractRootCause(content string) (rootCause, suggestion stri
 	return strings.TrimSpace(content), strings.TrimSpace(content)
 }
 
+// InjectContext adds a user message to the agent's memory before Run() is called.
+// The controller uses this to inject L2 (recent alert events) and L3 (historical
+// similar diagnoses) context retrieved from external stores.
+func (a *BaseAgent) InjectContext(msg string) {
+	a.memory.AddUserMessage(msg)
+}
+
 // Restore restores the agent's memory from a list of findings
 func (a *BaseAgent) Restore(findings []v1alpha1.Finding) {
 	if len(findings) == 0 {

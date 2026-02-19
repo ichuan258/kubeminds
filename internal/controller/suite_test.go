@@ -18,6 +18,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	kubemindsv1alpha1 "kubeminds/api/v1alpha1"
+	"kubeminds/internal/llm"
+	"kubeminds/internal/tools"
 )
 
 var cfg *rest.Config
@@ -76,14 +78,15 @@ var _ = BeforeSuite(func() {
 	k8sClientSet, err := kubernetes.NewForConfig(cfg)
 	Expect(err).ToNot(HaveOccurred())
 
+	toolRouter := tools.NewRouter(nil)
+	toolRouter.AddProvider(tools.NewInternalProvider(k8sClientSet))
+
 	err = (&DiagnosisTaskReconciler{
-		Client:    k8sManager.GetClient(),
-		Scheme:    k8sManager.GetScheme(),
-		K8sClient: k8sClientSet,
-		APIKey:    "test-key",
-		Model:     "test-model",
-		// We can inject a mock factory here if we want to mock LLM calls
-		// For now, let's see if we can just test the Reconcile loop logic
+		Client:      k8sManager.GetClient(),
+		Scheme:      k8sManager.GetScheme(),
+		K8sClient:   k8sClientSet,
+		LLMProvider: llm.NewMockProvider(),
+		ToolRouter:  toolRouter,
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

@@ -1,0 +1,255 @@
+[hook:fast] checking required tools...
+[hook:fast] checking formatting...
+[hook:fast] running linter...
+[hook:fast] running secret scan for staged changes...
+    ○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+7:22PM INF 0 commits scanned.
+7:22PM INF scanned ~15063 bytes (15.06 KB) in 26.4ms
+7:22PM INF no leaks found
+[hook:fast] running static compile...
+[hook:fast] passed.
+[main 4720be0] feat: complete Phase 2 core components and fix Makefile hooks
+ Date: Thu Feb 19 19:14:11 2026 +0800
+ 53 files changed, 4201 insertions(+), 89 deletions(-)
+ create mode 100755 .githooks/pre-commit
+ create mode 100755 .githooks/pre-push
+ create mode 100644 .golangci.yml
+ create mode 100644 .output.txt
+ create mode 100644 cmd/tools/encryptkey/main.go
+ create mode 100644 internal/agent/memory_l2.go
+ create mode 100644 internal/agent/memory_l2_test.go
+ create mode 100644 internal/agent/memory_l3.go
+ create mode 100644 internal/agent/memory_l3_test.go
+ create mode 100644 internal/alert/aggregator.go
+ create mode 100644 internal/alert/aggregator_test.go
+ create mode 100644 internal/alert/creator.go
+ create mode 100644 internal/alert/creator_test.go
+ create mode 100644 internal/alert/handler.go
+ create mode 100644 internal/alert/handler_test.go
+ create mode 100644 internal/alert/types.go
+ create mode 100644 internal/crypto/aes.go
+ create mode 100644 internal/crypto/aes_test.go
+ create mode 100644 internal/llm/anthropic.go
+ create mode 100644 internal/llm/anthropic_test.go
+ create mode 100644 internal/llm/embedding.go
+ create mode 100644 internal/llm/embedding_test.go
+ create mode 100644 internal/llm/factory.go
+ create mode 100644 internal/llm/gemini.go
+ create mode 100644 internal/llm/router.go
+ create mode 100644 internal/llm/router_test.go
+ create mode 100644 internal/tools/provider_grpc.go
+ create mode 100644 internal/tools/provider_internal.go
+ create mode 100644 internal/tools/provider_mcp.go
+ create mode 100644 internal/tools/router.go
+ create mode 100644 internal/tools/router_test.go
+ create mode 100644 lefthook.yml
+[hook:full] checking required tools...
+[hook:full] checking formatting...
+[hook:full] running full lint...
+[hook:full] running tests...
+?       kubeminds/api/v1alpha1  [no test files]
+?       kubeminds/cmd/apiserver [no test files]
+?       kubeminds/cmd/manager   [no test files]
+?       kubeminds/cmd/tools/encryptkey  [no test files]
+ok      kubeminds/internal/agent        (cached)
+ok      kubeminds/internal/alert        (cached)
+ok      kubeminds/internal/api  (cached)
+?       kubeminds/internal/config       [no test files]
+ok      kubeminds/internal/controller   (cached)
+ok      kubeminds/internal/crypto       (cached)
+ok      kubeminds/internal/llm  (cached)
+ok      kubeminds/internal/tools        (cached)
+[hook:full] running gosec...
+[gosec] 2026/02/19 19:22:34 Including rules: default
+[gosec] 2026/02/19 19:22:34 Excluding rules: default
+[gosec] 2026/02/19 19:22:34 Including analyzers: default
+[gosec] 2026/02/19 19:22:34 Excluding analyzers: default
+[gosec] 2026/02/19 19:22:34 Import directory: /Users/sun/ClaudeCodeProjects/kube-minds/api/v1alpha1
+[gosec] 2026/02/19 19:22:34 Import directory: /Users/sun/ClaudeCodeProjects/kube-minds/cmd/manager
+[gosec] 2026/02/19 19:22:34 Import directory: /Users/sun/ClaudeCodeProjects/kube-minds/internal/agent
+[gosec] 2026/02/19 19:22:34 Import directory: /Users/sun/ClaudeCodeProjects/kube-minds/internal/api
+[gosec] 2026/02/19 19:22:34 Import directory: /Users/sun/ClaudeCodeProjects/kube-minds/internal/llm
+[gosec] 2026/02/19 19:22:34 Import directory: /Users/sun/ClaudeCodeProjects/kube-minds/internal/config
+[gosec] 2026/02/19 19:22:34 Import directory: /Users/sun/ClaudeCodeProjects/kube-minds/internal/alert
+[gosec] 2026/02/19 19:22:34 Import directory: /Users/sun/ClaudeCodeProjects/kube-minds/internal/controller
+[gosec] 2026/02/19 19:22:34 Import directory: /Users/sun/ClaudeCodeProjects/kube-minds/cmd/apiserver
+[gosec] 2026/02/19 19:22:34 Import directory: /Users/sun/ClaudeCodeProjects/kube-minds/internal/tools
+[gosec] 2026/02/19 19:22:34 Import directory: /Users/sun/ClaudeCodeProjects/kube-minds/internal/crypto
+[gosec] 2026/02/19 19:22:34 Import directory: /Users/sun/ClaudeCodeProjects/kube-minds/cmd/tools/encryptkey
+[gosec] 2026/02/19 19:22:34 Checking package: crypto
+[gosec] 2026/02/19 19:22:34 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/crypto/aes.go
+[gosec] 2026/02/19 19:22:34 Checking package: main
+[gosec] 2026/02/19 19:22:34 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/cmd/tools/encryptkey/main.go
+[gosec] 2026/02/19 19:22:35 Checking package: v1alpha1
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/api/v1alpha1/diagnosistask_types.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/api/v1alpha1/groupversion_info.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/api/v1alpha1/zz_generated.deepcopy.go
+[gosec] 2026/02/19 19:22:35 Checking package: agent
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/agent/engine.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/agent/memory.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/agent/memory_l2.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/agent/memory_l3.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/agent/mocks.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/agent/skill.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/agent/skill_loader.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/agent/skill_manager.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/agent/types.go
+[gosec] 2026/02/19 19:22:35 Checking package: alert
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/alert/aggregator.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/alert/creator.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/alert/handler.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/alert/types.go
+[gosec] 2026/02/19 19:22:35 Checking package: config
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/config/config.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/config/k8s.go
+[gosec] 2026/02/19 19:22:35 Checking package: llm
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/llm/anthropic.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/llm/embedding.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/llm/factory.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/llm/gemini.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/llm/mock.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/llm/openai.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/llm/router.go
+[gosec] 2026/02/19 19:22:35 Checking package: tools
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/tools/node.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/tools/pod.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/tools/provider_grpc.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/tools/provider_internal.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/tools/provider_mcp.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/tools/registry.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/tools/router.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/tools/service.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/tools/volume.go
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/tools/write.go
+[gosec] 2026/02/19 19:22:35 Checking package: controller
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/controller/diagnosistask_controller.go
+[gosec] 2026/02/19 19:22:35 Checking package: api
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/internal/api/server.go
+[gosec] 2026/02/19 19:22:35 Checking package: main
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/cmd/manager/main.go
+[gosec] 2026/02/19 19:22:35 Checking package: main
+[gosec] 2026/02/19 19:22:35 Checking file: /Users/sun/ClaudeCodeProjects/kube-minds/cmd/apiserver/main.go
+Results:
+Summary:
+  Gosec  : dev
+  Files  : 41
+  Lines  : 5388
+  Nosec  : 2
+  Issues : 0
+[hook:full] running govulncheck...
+=== Symbol Results ===
+Vulnerability #1: GO-2026-4341
+    Memory exhaustion in query parameter parsing in net/url
+  More info: https://pkg.go.dev/vuln/GO-2026-4341
+  Standard library
+    Found in: net/url@go1.25.2
+    Fixed in: net/url@go1.25.6
+    Example traces found:
+      #1: internal/api/server.go:103:27: api.Server.Start calls http.Server.ListenAndServe, which eventually calls url.ParseQuery
+      #2: internal/llm/openai.go:101:44: llm.OpenAIProvider.Chat calls openai.Client.CreateChatCompletion, which eventually calls url.URL.Query
+Vulnerability #2: GO-2026-4340
+    Handshake messages may be processed at the incorrect encryption level in
+    crypto/tls
+  More info: https://pkg.go.dev/vuln/GO-2026-4340
+  Standard library
+    Found in: crypto/tls@go1.25.2
+    Fixed in: crypto/tls@go1.25.6
+    Example traces found:
+      #1: internal/api/server.go:103:27: api.Server.Start calls http.Server.ListenAndServe, which eventually calls tls.Conn.HandshakeContext
+      #2: internal/tools/pod.go:76:18: tools.GetPodLogsTool.Execute calls io.Copy, which eventually calls tls.Conn.Read
+      #3: cmd/tools/encryptkey/main.go:31:14: encryptkey.main calls fmt.Fprintf, which calls tls.Conn.Write
+      #4: cmd/apiserver/main.go:180:35: apiserver.main calls redis.NewClient, which eventually calls tls.DialWithDialer
+      #5: internal/tools/pod.go:69:28: tools.GetPodLogsTool.Execute calls rest.Request.Stream, which eventually calls tls.Dialer.DialContext
+Vulnerability #3: GO-2026-4337
+    Unexpected session resumption in crypto/tls
+  More info: https://pkg.go.dev/vuln/GO-2026-4337
+  Standard library
+    Found in: crypto/tls@go1.25.2
+    Fixed in: crypto/tls@go1.25.7
+    Example traces found:
+      #1: internal/api/server.go:103:27: api.Server.Start calls http.Server.ListenAndServe, which eventually calls tls.Conn.HandshakeContext
+      #2: internal/tools/pod.go:76:18: tools.GetPodLogsTool.Execute calls io.Copy, which eventually calls tls.Conn.Read
+      #3: cmd/tools/encryptkey/main.go:31:14: encryptkey.main calls fmt.Fprintf, which calls tls.Conn.Write
+      #4: cmd/apiserver/main.go:180:35: apiserver.main calls redis.NewClient, which eventually calls tls.DialWithDialer
+      #5: internal/tools/pod.go:69:28: tools.GetPodLogsTool.Execute calls rest.Request.Stream, which eventually calls tls.Dialer.DialContext
+Vulnerability #4: GO-2025-4175
+    Improper application of excluded DNS name constraints when verifying
+    wildcard names in crypto/x509
+  More info: https://pkg.go.dev/vuln/GO-2025-4175
+  Standard library
+    Found in: crypto/x509@go1.25.2
+    Fixed in: crypto/x509@go1.25.5
+    Example traces found:
+      #1: internal/tools/pod.go:76:18: tools.GetPodLogsTool.Execute calls io.Copy, which eventually calls x509.Certificate.Verify
+Vulnerability #5: GO-2025-4155
+    Excessive resource consumption when printing error string for host
+    certificate validation in crypto/x509
+  More info: https://pkg.go.dev/vuln/GO-2025-4155
+  Standard library
+    Found in: crypto/x509@go1.25.2
+    Fixed in: crypto/x509@go1.25.5
+    Example traces found:
+      #1: internal/tools/pod.go:76:18: tools.GetPodLogsTool.Execute calls io.Copy, which eventually calls x509.Certificate.Verify
+      #2: internal/api/server.go:103:27: api.Server.Start calls http.Server.ListenAndServe, which eventually calls x509.Certificate.VerifyHostname
+Vulnerability #6: GO-2025-4007
+    Quadratic complexity when checking name constraints in crypto/x509
+  More info: https://pkg.go.dev/vuln/GO-2025-4007
+  Standard library
+    Found in: crypto/x509@go1.25.2
+    Fixed in: crypto/x509@go1.25.3
+    Example traces found:
+      #1: internal/agent/memory_l3.go:32:33: agent.NewPGKnowledgeBaseFromDSN calls pgxpool.ParseConfig, which eventually calls x509.CertPool.AppendCertsFromPEM
+      #2: internal/tools/pod.go:76:18: tools.GetPodLogsTool.Execute calls io.Copy, which eventually calls x509.Certificate.Verify
+      #3: internal/controller/diagnosistask_controller.go:157:8: controller.DiagnosisTaskReconciler.Reconcile calls errgroup.Group.Go, which eventually calls x509.CreateCertificate
+      #4: internal/agent/memory_l3.go:32:33: agent.NewPGKnowledgeBaseFromDSN calls pgxpool.ParseConfig, which eventually calls x509.DecryptPEMBlock
+      #5: internal/controller/diagnosistask_controller.go:157:8: controller.DiagnosisTaskReconciler.Reconcile calls errgroup.Group.Go, which eventually calls x509.MarshalPKCS1PrivateKey
+      #6: internal/controller/diagnosistask_controller.go:157:8: controller.DiagnosisTaskReconciler.Reconcile calls errgroup.Group.Go, which eventually calls x509.ParseCertificate
+      #7: internal/agent/memory_l3.go:32:33: agent.NewPGKnowledgeBaseFromDSN calls pgxpool.ParseConfig, which eventually calls x509.ParseECPrivateKey
+      #8: internal/agent/memory_l3.go:32:33: agent.NewPGKnowledgeBaseFromDSN calls pgxpool.ParseConfig, which eventually calls x509.ParsePKCS1PrivateKey
+      #9: internal/agent/memory_l3.go:32:33: agent.NewPGKnowledgeBaseFromDSN calls pgxpool.ParseConfig, which eventually calls x509.ParsePKCS8PrivateKey
+      #10: internal/agent/memory_l3.go:32:33: agent.NewPGKnowledgeBaseFromDSN calls pgxpool.ParseConfig, which eventually calls x509.SystemCertPool
+Your code is affected by 6 vulnerabilities from the Go standard library.
+This scan also found 0 vulnerabilities in packages you import and 1
+vulnerability in modules you require, but your code doesn't appear to call these
+vulnerabilities.
+Use '-show verbose' for more details.
+WARNING: govulncheck found issues, please review them.
+[hook:full] running full secret scan...
+    ○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+Finding:     apiKey: "REDACTED"
+Secret:      REDACTED
+RuleID:      gcp-api-key
+Entropy:     4.682588
+File:        cmd/config/config.yaml
+Line:        7
+Commit:      5ce30953491523e34afc2a317b1cf891aa9fd112
+Author:      sun
+Email:       sun@suns-MacBook-Pro.local
+Date:        2026-02-14T06:20:20Z
+Fingerprint: 5ce30953491523e34afc2a317b1cf891aa9fd112:cmd/config/config.yaml:gcp-api-key:7
+Link:        https://github.com/ichuan258/kubeminds/blob/5ce30953491523e34afc2a317b1cf891aa9fd112/cmd/config/config.yaml#L7
+Finding:     REDACTED
+Secret:      REDACTED
+RuleID:      private-key
+Entropy:     6.030895
+Tags:        [decoded:base64 decode-depth:1]
+File:        kubeminds-config.yaml
+Line:        19
+Commit:      5164b609c3428a467aec562d1eb03e47836b7a16
+Author:      ichuan258
+Email:       sy8406382665@gmail.com
+Date:        2026-02-18T07:58:13Z
+Fingerprint: 5164b609c3428a467aec562d1eb03e47836b7a16:kubeminds-config.yaml:private-key:19
+Link:        https://github.com/ichuan258/kubeminds/blob/5164b609c3428a467aec562d1eb03e47836b7a16/kubeminds-config.yaml#L19
+7:22PM INF 13 commits scanned.
+7:22PM INF scanned ~618371 bytes (618.37 KB) in 68ms
+7:22PM WRN leaks found: 2
+error: failed to push some refs to 'github.com:ichuan258/kubeminds.git'

@@ -78,7 +78,7 @@ func (l *SkillLoader) LoadSkills(dir string) (map[string]Skill, error) {
 			return nil
 		}
 
-		file, err := os.Open(path)
+		file, err := os.Open(filepath.Clean(path))
 		if err != nil {
 			return fmt.Errorf("failed to open skill file %s: %w", path, err)
 		}

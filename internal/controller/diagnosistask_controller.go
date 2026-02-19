@@ -16,7 +16,6 @@ import (
 
 	kubemindsv1alpha1 "kubeminds/api/v1alpha1"
 	"kubeminds/internal/agent"
-	"kubeminds/internal/llm"
 	"kubeminds/internal/tools"
 )
 
@@ -25,21 +24,34 @@ type DiagnosisTaskReconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
 	K8sClient    kubernetes.Interface
-	APIKey       string
-	Model        string
-	BaseURL      string
 	SkillDir     string
 	AgentTimeout time.Duration
-	MockLLM      bool // Use mock LLM provider for testing
 
-	// ProviderFactory allows injecting a custom LLM provider (e.g., for testing)
-	ProviderFactory func(apiKey, model, baseUrl string) agent.LLMProvider
+	// LLMProvider is the LLM backend used by every agent spawned by this controller.
+	// Inject llm.NewRouterFromConfig(cfg.LLM) at startup, or llm.NewMockProvider() for tests.
+	LLMProvider agent.LLMProvider
 
 	// ActiveAgents tracks running agents to prevent duplicate execution and enable cancellation
 	ActiveAgents sync.Map // map[string]context.CancelFunc
 
 	// SkillManager manages available skills
 	SkillManager *agent.SkillManager
+
+	// ToolRouter manages available tools
+	ToolRouter *tools.Router
+
+	// L2Store is an optional L2 event store. When non-nil, recent alert events for
+	// the target namespace are injected into the agent's context before each run.
+	L2Store agent.EventStore
+
+	// KnowledgeBase is an optional L3 knowledge base. When non-nil, similar historical
+	// diagnoses are retrieved and injected before each run, and completed diagnoses are
+	// saved asynchronously after each successful run.
+	KnowledgeBase agent.KnowledgeBase
+
+	// Embedder is required when KnowledgeBase is set. It generates the embedding vectors
+	// used for semantic search and storage.
+	Embedder agent.EmbeddingProvider
 }
 
 // +kubebuilder:rbac:groups=kubeminds.io,resources=diagnosistasks,verbs=get;list;watch;create;update;patch;delete
@@ -145,23 +157,15 @@ func (r *DiagnosisTaskReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		eg.Go(func() error {
 			defer r.ActiveAgents.Delete(req.NamespacedName.String())
 
-			// Initialize tools
-			agentTools := []agent.Tool{
-				tools.NewGetPodLogsTool(r.K8sClient),
-				tools.NewGetPodEventsTool(r.K8sClient),
-				tools.NewGetPodSpecTool(r.K8sClient),
+			// Initialize tools from Router
+			agentTools, err := r.ToolRouter.ListTools(agentCtx)
+			if err != nil {
+				log.Error("Failed to list tools", "error", err)
+				return fmt.Errorf("failed to list tools: %w", err)
 			}
 
-			// Initialize LLM
-			var llmProvider agent.LLMProvider
-			if r.MockLLM {
-				log.Info("Using Mock LLM provider")
-				llmProvider = llm.NewMockProvider()
-			} else if r.ProviderFactory != nil {
-				llmProvider = r.ProviderFactory(r.APIKey, r.Model, r.BaseURL)
-			} else {
-				llmProvider = llm.NewOpenAIProvider(r.APIKey, r.Model, r.BaseURL)
-			}
+			// Use the LLM provider injected at startup (Router or Mock).
+			llmProvider := r.LLMProvider
 
 			// Define Checkpoint Callback
 			onStepComplete := func(finding *kubemindsv1alpha1.Finding, historyEntry string) {
@@ -212,6 +216,36 @@ func (r *DiagnosisTaskReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			goal := fmt.Sprintf("Diagnose the issue with %s %s in namespace %s.",
 				task.Spec.Target.Kind, task.Spec.Target.Name, task.Spec.Target.Namespace)
 
+			// Inject L2 context: recent alert events for the same namespace.
+			if r.L2Store != nil {
+				events, err := r.L2Store.GetRecentEvents(agentCtx, task.Spec.Target.Namespace, task.Spec.Target.Name, 10)
+				if err != nil {
+					log.Info("l2: failed to fetch recent events (non-fatal)", "error", err)
+				} else if formatted := agent.FormatAlertEvents(events); formatted != "" {
+					ag.InjectContext(formatted)
+				}
+			}
+
+			// Inject L3 context: historically similar diagnoses via semantic search.
+			if r.KnowledgeBase != nil && r.Embedder != nil {
+				alertName := ""
+				if task.Spec.AlertContext != nil {
+					alertName = task.Spec.AlertContext.Name
+				}
+				queryText := alertName + " " + task.Spec.Target.Namespace
+				emb, err := r.Embedder.Embed(agentCtx, queryText)
+				if err != nil {
+					log.Info("l3: failed to generate query embedding (non-fatal)", "error", err)
+				} else {
+					historicals, err := r.KnowledgeBase.SearchSimilar(agentCtx, emb, 3)
+					if err != nil {
+						log.Info("l3: failed to search similar diagnoses (non-fatal)", "error", err)
+					} else if formatted := agent.FormatHistoricalFindings(historicals); formatted != "" {
+						ag.InjectContext(formatted)
+					}
+				}
+			}
+
 			// Run Agent
 			result, err := ag.Run(agentCtx, goal, task.Spec.Approved)
 
@@ -242,6 +276,33 @@ func (r *DiagnosisTaskReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				latestTask.Status.Report = &kubemindsv1alpha1.DiagnosisReport{
 					RootCause:  result.RootCause,
 					Suggestion: result.Suggestion,
+				}
+
+				// Save diagnosis to L3 knowledge base asynchronously.
+				// This must not block the reconcile path or status update.
+				if r.KnowledgeBase != nil && r.Embedder != nil {
+					alertName := ""
+					if latestTask.Spec.AlertContext != nil {
+						alertName = latestTask.Spec.AlertContext.Name
+					}
+					finding := agent.KnowledgeFinding{
+						AlertName:  alertName,
+						Namespace:  latestTask.Spec.Target.Namespace,
+						RootCause:  result.RootCause,
+						Suggestion: result.Suggestion,
+					}
+					go func(f agent.KnowledgeFinding) {
+						saveCtx := context.Background()
+						text := f.RootCause + " " + f.Suggestion
+						emb, err := r.Embedder.Embed(saveCtx, text)
+						if err != nil {
+							log.Error("l3: failed to generate embedding for completed diagnosis", "error", err)
+							return
+						}
+						if err := r.KnowledgeBase.SaveDiagnosis(saveCtx, f, emb); err != nil {
+							log.Error("l3: failed to save diagnosis to knowledge base", "error", err)
+						}
+					}(finding)
 				}
 			}
 

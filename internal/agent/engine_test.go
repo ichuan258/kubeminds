@@ -53,6 +53,7 @@ func TestAgent_Run_Success(t *testing.T) {
 
 	if result.RootCause == "" {
 		// In our simple implementation, RootCause isn't parsed separately yet, so we check Suggestion
+		t.Log("RootCause is empty as expected in MVP")
 	}
 
 	if result.Suggestion != "The logs show a panic. Suggest restarting the pod." {
